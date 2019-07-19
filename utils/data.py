@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 root = '/Users/zhangzhen/Downloads/luckin/p'
 # SQL 导出
-root = 'E:/data/lucky'
+root = 'E:\data\luckin\p'
 type_file = '60353-数据反馈类型查询.csv'
 feedback_file = '60356-意见反馈查询.csv'
 comment_file = '60360-订单评论查询.csv'
@@ -27,6 +27,7 @@ comment_file = '60360-订单评论查询.csv'
 comment_good = "comment_good.txt"
 comment_bad = "comment_bad.txt"
 SPAN = "###############=============={}===============\n"
+
 
 def optional_labels():
     int2labels = collections.defaultdict(str)
@@ -82,19 +83,24 @@ def read_feedback_opinions():
 
 
 def read_comments():
-    """订单评论信息处理"""
+    """订单评论信息处理
+        对 csv 数据处理, 分别区分各类数据, 并去除
+    """
     # level,$0, label,$1, comment,$2, reply,$3, remark
     # level 0 -> 差评，level 1 -> 好评
     #
-    real_bad_comments = []
-    real_good_comments = []
-    feak_good_comments = []
+    bad_comments = []
+    good_comments = []
+    bad_good_comments = []
+    bad_bad_comments = []
     good_count = 0
     bad_count = 0
+    good_reply_count, bad_reply_count = 0, 0
+
     with codecs.open(root + os.sep + comment_file, encoding='utf-8') as f:
         count = 0
         tmp = ""
-        for line in f.readlines():
+        for line in tqdm(f.readlines()):
             count += 1
             if count == 1:
                 continue
@@ -119,49 +125,48 @@ def read_comments():
                         good_count += 1
                         # 根据
                         if len(reply) > 0:
-                            feak_good_comments.append(comment + "\n")
+                            good_reply_count += 1
+                            bad_good_comments.append(comment + "\n")
                             # real_bad_comments.append(comment + "\n")
                         else:
-                            real_good_comments.append(comment + "\n")
+                            good_comments.append(comment + "\n")
                     elif level == '0':
                         """非满意"""
                         bad_count += 1
-                        real_bad_comments.append(comment + "\n")
+                        if len(reply) > 0:
+                            bad_reply_count += 1
+                            bad_bad_comments.append(comment + "\n")
+                        else:
+                            bad_comments.append(comment + "\n")
                 tmp = ""
 
-    print("good comments: {}, bad comments: {}".format(good_count, bad_count))
-    print("real good comments:{}, real bad comments:{}".format(len(real_good_comments), len(real_bad_comments)))
+    print("[*] total good comments: {}, total bad comments: {}".format(good_count, bad_count))
 
-    codecs.open("bad.txt", mode='w+', encoding='utf-8').writelines(real_bad_comments)
-    codecs.open("good.txt", mode='w+', encoding='utf-8').writelines(real_good_comments)
-    codecs.open("bad.txt", mode='w+', encoding='utf-8').writelines(real_bad_comments)
+    print("[*] good cmt reply num: {}, bad cmt reply num: {}".format(good_reply_count, bad_reply_count))
+    print("[*] no_reply good comments:{}, no_reply bad comments:{}".format(len(good_comments), len(bad_comments)))
+    print("[*] reply good comments:{}, reply bad comments:{}".format(len(bad_good_comments), len(bad_bad_comments)))
 
+    # Filter text
+    good_comments = list(set(good_comments))
+    bad_comments = list(set(bad_comments))
+    bad_good_comments = list(set(bad_good_comments))
+    bad_bad_comments = list(set(bad_bad_comments))
 
-def filter_comments() -> None:
-    """对导出的评论数据 过滤"""
-    results = []
-    with codecs.open(os.path.join(root, comment_good), encoding='utf-8') as f:
-        for line in tqdm(f.readlines()):
-            results.append(line)
+    print(
+        "[*] filter no_reply good comments:{}, no_reply bad comments:{}".format(len(good_comments), len(bad_comments)))
+    print("[*] filter reply good comments:{}, reply bad comments:{}".format(len(bad_good_comments),
+                                                                            len(bad_bad_comments)))
 
-    print(len(set(results)), len(results))
-    codecs.open(os.path.join(root, "filter_comment_good.txt"), mode='w+', encoding='utf-8').writelines(
-        list(set(results)))
-
-    results = []
-    with codecs.open(os.path.join(root, comment_bad), encoding='utf-8') as f:
-        for line in tqdm(f.readlines()):
-            results.append(line)
-
-    print(len(set(results)), len(results))
-    codecs.open(os.path.join(root, "filter_comment_bad.txt"), mode='w+', encoding='utf-8').writelines(
-        list(set(results)))
+    codecs.open(os.path.join(root, "good.txt"), mode='w+', encoding='utf-8').writelines(good_comments)
+    codecs.open(os.path.join(root, "bad.txt"), mode='w+', encoding='utf-8').writelines(bad_comments)
+    codecs.open(os.path.join(root, "reply_good.txt"), mode='w+', encoding='utf-8').writelines(bad_good_comments)
+    codecs.open(os.path.join(root, "reply_bad.txt"), mode='w+', encoding='utf-8').writelines(bad_bad_comments)
 
 
 def split_unit(goods, bads, start=0, end=None, span=2000):
     tmp = []
-    tmp.extend(["good\t{}".format(line) for line in goods[start:end]])
-    tmp.extend(["bad\t{}".format(line) for line in bads[start:end]])
+    tmp.extend(["0\t{}".format(line) for line in goods[start:end]])
+    tmp.extend(["1\t{}".format(line) for line in bads[start:end]])
     print("\nunit num: {} \n\t{}\n\t{}".format(len(tmp), tmp[0], tmp[-1]))
     np.random.shuffle(tmp)
 
@@ -170,7 +175,7 @@ def split_unit(goods, bads, start=0, end=None, span=2000):
         results.append(line)
         # 添加span分割标识
         if (i + 1) % span == 0:
-            results.append(SPAN.format((i+1)/span))
+            results.append(SPAN.format((i + 1) / span))
     return results
 
 
@@ -178,6 +183,7 @@ def corpus_split_train_dev_test(random_state=1234):
     """
     生成统一的语料
     文本格式:
+        Label: 0 -> good; 1 -> bad
         label_\t_text
     out:
     train x,
@@ -186,8 +192,8 @@ def corpus_split_train_dev_test(random_state=1234):
 
     每隔2000行添加 $$$$$$$$$$$$/##########分割
     """
-    bads = codecs.open(os.path.join(root, "filter_comment_bad.txt"), encoding='utf-8').readlines()
-    goods = codecs.open(os.path.join(root, "filter_comment_good.txt"), encoding='utf-8').readlines()
+    bads = codecs.open(os.path.join(root, "bad.txt"), encoding='utf-8').readlines()
+    goods = codecs.open(os.path.join(root, "good.txt"), encoding='utf-8').readlines()
     print("Good comments nums: {}, \nBad comments nums: {}".format(len(goods), len(bads)))
 
     np.random.seed(random_state)
@@ -211,6 +217,15 @@ def corpus_split_train_dev_test(random_state=1234):
     codecs.open(root + os.sep + "dev.tsv", encoding='utf-8', mode='w+').writelines(dev)
     codecs.open(root + os.sep + "test.tsv", encoding='utf-8', mode='w+').writelines(test)
     codecs.open(root + os.sep + "train.tsv", encoding='utf-8', mode='w+').writelines(train)
+
+
+def gen_test_target():
+    reply_bads = codecs.open(os.path.join(root, "reply_bad.txt"), encoding='utf-8').readlines()
+    reply_goods = codecs.open(os.path.join(root, "reply_good.txt"), encoding='utf-8').readlines()
+    codecs.open(root + os.sep + "target_reply_good.tsv", encoding='utf-8', mode='w+') \
+        .writelines(["1\t{}".format(line) for line in tqdm(reply_goods)])
+    codecs.open(root + os.sep + "target_reply_bad.tsv", encoding='utf-8', mode='w+') \
+        .writelines(["1\t{}".format(line) for line in tqdm(reply_bads)])
 
 
 def gen_word2id():
@@ -290,10 +305,9 @@ def read_corpus(sequence_length=50, sparse=True):
 
 if __name__ == '__main__':
     # read_feedback_opinions()
-    read_comments()
-    # filter_comments()
+    # read_comments()
     # corpus_split_train_dev_test()  # 分割语料
-    # merge_comment_corpus()  # 合并所有语料
+    gen_test_target()
     # gen_word2id()
 
     # vocab2int, int2vocab, label2int, int2label, (_data, _labels) = read_corpus()

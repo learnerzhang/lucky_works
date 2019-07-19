@@ -12,7 +12,7 @@ import time
 import tensorflow as tf
 from sklearn.metrics import classification_report
 
-from utils.dl_utils import load_dict, read_corpus, read_test_corpus, batch_yield, pad_sequences
+from utils.dl_utils import load_dict, read_corpus, batch_yield, read_target_test_corpus
 from opinion.model.tf_text_cnn import TextCNN
 from utils.path import MODEL_PATH
 
@@ -43,7 +43,7 @@ def args():
     parser.add_argument("--filter_sizes", type=list, default=[2, 3, 4], help='filter size')
     parser.add_argument("--num_filters", type=int, default=128, help='num filters')
     parser.add_argument('--mode', type=str, default='test', help='train|test|demo')
-    parser.add_argument('--DEMO', type=str, default='1563502540', help='model for test and demo')
+    parser.add_argument('--DEMO', type=str, default='iter_0_10000', help='model for test and demo')
     return parser.parse_known_args()
 
 
@@ -66,7 +66,7 @@ def read_dict():
 
 
 def train():
-    tag2label = {'good': 0, 'bad': 1}
+    tag2label = {'0': 0, '1': 1}
     iter = -1
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
@@ -83,11 +83,10 @@ def train():
 
 def test():
     word2int, int2word = read_dict()
-    tag2label = {'good': 0, 'bad': 1}
-    int2tag = {l: t for t, l in tag2label.items()}
-    target_names = [int2tag[i] for i in range(len(int2tag))]
+    tag2label = {'0': 0, '1': 1}
+    target_names = ["good", "bad"]
 
-    test = read_test_corpus()
+    reply_good, reply_bad, test = read_target_test_corpus()
 
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')
     print(model_path)
@@ -106,7 +105,7 @@ def test():
         print('============= TEST RESULT =============')
         saver.restore(sess, ckpt_file)
 
-        test_batch_size = 2000
+        test_batch_size = 5000
 
         true_y = []
         pred_y = []
@@ -121,6 +120,30 @@ def test():
 
         print('============= FINAL TEST RESULT =============')
         print(classification_report(true_y, pred_y, target_names=target_names))
+
+        print('\n============= TEST REPLY GOOD RESULT =============')
+        true_y = []
+        pred_y = []
+        test_batch_size = 5000
+        for tx, ty in batch_yield(reply_good, test_batch_size, word2int, tag2label, max_seq_len=FLAGS.sequence_length,
+                                  shuffle=True):
+            preds = textCNN.predict(sess, tx, demo=False)
+            true_y.extend(ty)
+            pred_y.extend(preds)
+        print('============= FINAL TEST REPLY GOOD RESULT =============')
+        print(classification_report(true_y, pred_y, target_names=target_names))
+
+        print('\n============= TEST REPLY BAD RESULT =============')
+        true_y = []
+        pred_y = []
+        test_batch_size = 5000
+        for tx, ty in batch_yield(reply_bad, test_batch_size, word2int, tag2label, max_seq_len=FLAGS.sequence_length,
+                                  shuffle=True):
+            preds = textCNN.predict(sess, tx, demo=False)
+            true_y.extend(ty)
+            pred_y.extend(preds)
+        print('============= FINAL TEST REPLY BAD RESULT =============')
+        print(classification_report(true_y, pred_y, target_names=target_names))
         # probs = textCNN.predict_prob(sess, inps)
         # for inp, r, prob in zip(inps, results, probs):
         #     print("\n{}".format(inp))
@@ -132,7 +155,7 @@ def test():
 def demo():
     word2int, int2word = read_dict()
 
-    tag2label = {'good': 0, 'bad': 1}
+    tag2label = {'0': 0, '1': 1}
     int2tag = {l: t for t, l in tag2label.items()}
 
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')

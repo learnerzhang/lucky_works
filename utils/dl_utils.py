@@ -81,8 +81,8 @@ def read_corpus(random_state=1234, separator='\t', iter=-1, iter_size=10000):
     return train, dev
 
 
-def read_test_corpus(separator='\t', ):
-    results = []
+def read_target_test_corpus(separator='\t', ):
+    tests = []
     with codecs.open(DATA_PATH + os.sep + 'test.tsv', encoding='utf-8') as f:
         for line in tqdm(f.readlines()):
             if line.startswith("####") or line.startswith("$$$$"):
@@ -92,12 +92,17 @@ def read_test_corpus(separator='\t', ):
             if len(tokens) < 2:
                 continue
             elif len(tokens) == 2:
-                results.append((tokens[1], tokens[0]))
+                tests.append((tokens[1], tokens[0]))
             else:
-                results.append(("".join(tokens[1:None]), tokens[0]))
-    # np.random.seed(random_state)
-    # np.random.shuffle(results)
-    return results
+                tests.append(("".join(tokens[1:None]), tokens[0]))
+
+    reply_bad = [(''.join(line.split(separator)[1:None]), line.split(separator)[0]) for line in
+                 tqdm(codecs.open(DATA_PATH + os.sep + 'target_reply_bad.tsv', encoding='utf-8').readlines()) if
+                 len(line.split(separator)) >= 2]
+    reply_good = [(''.join(line.split(separator)[1:None]), line.split(separator)[0]) for line in
+                  tqdm(codecs.open(DATA_PATH + os.sep + 'target_reply_good.tsv', encoding='utf-8').readlines()) if
+                  len(line.split(separator)) >= 2]
+    return reply_good, reply_bad, tests
 
 
 def batch_yield(data, batch_size, vocab, tag2label, max_seq_len=128, shuffle=False):

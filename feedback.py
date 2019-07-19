@@ -21,7 +21,7 @@ corpus = read_feedback()
 corpus = [" ".join(clean(feed_content)) for (feed_content, opt) in corpus]
 print("Case:", corpus[0])
 
-corpus = corpus[:10000]
+# corpus = corpus[:10000]
 ########################################
 # TF_IDF
 
@@ -83,10 +83,10 @@ def plot_cluster(result, newData, numClass):
 
 
 # PCA -> PLT
-# pca = PCA(n_components=2)  # 输出两维
-# newData = pca.fit_transform(weight)  # 载入N维
-# result = list(clf.predict(TnewData))
-# plot_cluster(result, newData, numClass)
+pca = PCA(n_components=2)  # 输出两维
+newData = pca.fit_transform(weight)  # 载入N维
+result = list(clf.predict(TnewData))
+plot_cluster(result, newData, numClass)
 
 
 # SNE
@@ -98,7 +98,7 @@ from sklearn.manifold import TSNE
 # plot_cluster(result, newData, numClass)
 
 
-newData = PCA(n_components=numClass).fit_transform(weight)  # 载入N维
-newData = TSNE(2).fit_transform(newData)
-result = list(clf.predict(TnewData))
-plot_cluster(result, newData, numClass)
+# newData = PCA(n_components=numClass).fit_transform(weight)  # 载入N维
+# newData = TSNE(2).fit_transform(newData)
+# result = list(clf.predict(TnewData))
+# plot_cluster(result, newData, numClass)

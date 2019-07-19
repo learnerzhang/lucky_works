@@ -10,7 +10,8 @@ import os
 import jieba
 import codecs
 
-root = '/Users/zhangzhen/Downloads/luckin'
+root = 'E:/data/lucky'
+# root = '/Users/zhangzhen/Downloads/luckin'
 
 
 

@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 root = '/Users/zhangzhen/Downloads/luckin/p'
 # SQL 导出
+root = 'E:/data/lucky'
 type_file = '60353-数据反馈类型查询.csv'
 feedback_file = '60356-意见反馈查询.csv'
 comment_file = '60360-订单评论查询.csv'
@@ -292,6 +293,7 @@ if __name__ == '__main__':
     read_comments()
     # filter_comments()
     # corpus_split_train_dev_test()  # 分割语料
+    # merge_comment_corpus()  # 合并所有语料
     # gen_word2id()
 
     # vocab2int, int2vocab, label2int, int2label, (_data, _labels) = read_corpus()

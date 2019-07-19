@@ -15,7 +15,7 @@ corpus = read_feedback()
 corpus = [" ".join(clean(feed_content)) for (feed_content, opt) in corpus]
 print("Case:", corpus[0])
 
-corpus = corpus[:10000]
+# corpus = corpus[:10000]
 ########################################
 # TF_IDF
 
@@ -45,10 +45,10 @@ s = clf.fit(TnewData)
 
 
 # PCA -> PLT
-# pca = PCA(n_components=2)  # 输出两维
-# newData = pca.fit_transform(weight)  # 载入N维
-# result = list(clf.predict(TnewData))
-# plot_cluster(result, newData, numClass)
+pca = PCA(n_components=2)  # 输出两维
+newData = pca.fit_transform(weight)  # 载入N维
+result = list(clf.predict(TnewData))
+plot_cluster(result, newData, numClass)
 
 
 # SNE

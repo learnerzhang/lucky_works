@@ -7,14 +7,8 @@
 # @Software: PyCharm
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
 
-from data import read_feedback, clean
-import gensim
-
-import jieba
-
-import re
+from word2vec.data import read_feedback, clean
 
 corpus = read_feedback()
 
@@ -48,38 +42,6 @@ TnewData = pca.fit_transform(weight)  # 载入N维
 s = clf.fit(TnewData)
 
 
-def plot_cluster(result, newData, numClass):
-    plt.figure(2)
-    Lab = [[] for i in range(numClass)]
-    index = 0
-    for labi in result:
-        Lab[labi].append(index)
-        index += 1
-    color = ['oy', 'ob', 'og', 'cs', 'ms', 'bs', 'ks', 'ys', 'yv', 'mv', 'bv', 'kv', 'gv', 'y^', 'm^', 'b^', 'k^',
-             'g^'] * 3
-    for i in range(numClass):
-        x1 = []
-        y1 = []
-        for ind1 in newData[Lab[i]]:
-            # print ind1
-            try:
-                y1.append(ind1[1])
-                x1.append(ind1[0])
-            except:
-                pass
-        plt.plot(x1, y1, color[i])
-
-    # 绘制初始中心点
-    x1 = []
-    y1 = []
-    for ind1 in clf.cluster_centers_:
-        try:
-            y1.append(ind1[1])
-            x1.append(ind1[0])
-        except:
-            pass
-    plt.plot(x1, y1, "rv")  # 绘制中心
-    plt.show()
 
 
 # PCA -> PLT
@@ -90,7 +52,6 @@ plot_cluster(result, newData, numClass)
 
 
 # SNE
-from sklearn.manifold import TSNE
 
 # ts = TSNE(2)
 # newData = ts.fit_transform(weight)

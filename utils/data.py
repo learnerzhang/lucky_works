@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 root = '/Users/zhangzhen/Downloads/luckin/p'
+root = 'E:/data/lucky'
 type_file = '60353-数据反馈类型查询.csv'
 feedback_file = '60356-意见反馈查询.csv'
 comment_file = '60360-订单评论查询.csv'
@@ -225,9 +226,9 @@ def read_corpus(sequence_length=50, sparse=True):
 
 if __name__ == '__main__':
     # read_feedback_opinions()
-    # read_comments()
+    read_comments()
     # merge_comment_corpus()  # 合并所有语料
-    gen_word2id()
+    # gen_word2id()
 
     # vocab2int, int2vocab, label2int, int2label, (_data, _labels) = read_corpus()
     # print(_data[0], _labels[0])
@@ -235,3 +236,4 @@ if __name__ == '__main__':
     # X_train, X_test, y_train, y_test = train_test_split(_data, _labels, test_size=0.33, random_state=42)
     # print(len(X_train), len(y_train))
     # print(len(X_test), len(y_test))
+    exit(0)

@@ -101,7 +101,6 @@ ENV/
 # mypy
 .mypy_cache/
 
-
 *.tar
 
 .idea
@@ -111,4 +110,4 @@ models/
 
 # details
 .DS_Store
-./data
+data

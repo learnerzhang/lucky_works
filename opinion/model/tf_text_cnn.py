@@ -23,8 +23,7 @@ class TextCNN:
 
     def __init__(self, config, model_path, vocab, tag2label, embed_size=300, batch_size=64, eopches=10,
                  sequence_length=50, filter_sizes=[2, 3, 4], num_filters=128, lr=0.001, decay_rate=0.99, keep_rate=0.5,
-                 lip_gradients=5.0, decay_steps=10000, is_training=True,
-                 initializer=tf.random_normal_initializer(stddev=0.1)):
+                 lip_gradients=5.0, decay_steps=10000, initializer=tf.random_normal_initializer(stddev=0.1)):
 
         self.config = config
         self.model_path = model_path
@@ -42,8 +41,6 @@ class TextCNN:
         self.vocab_size = len(vocab)
 
         self.embed_size = embed_size
-        self.is_training = is_training
-
         self.rate = keep_rate
 
         self.learning_rate = tf.Variable(lr, trainable=False, name="learning_rate")  # ADD learning_rate
@@ -71,11 +68,10 @@ class TextCNN:
 
         self.instantiate_weights()
         self.logits = self.inference()  # [None, self.label_size]. main computation graph is here.
-        self.possibility = tf.nn.sigmoid(self.logits)
+
+        self.possibility = tf.nn.softmax(self.logits)
         self.predictions = tf.argmax(self.logits, axis=1, name="predictions")
 
-        if not is_training:
-            return
         self.loss_val = self.loss()
         self.train_op = self.opt()
 
@@ -243,7 +239,7 @@ class TextCNN:
                         saver.save(sess, checkpoints_path + os.sep + "model", global_step=step_num)
 
                 # DEV
-                logger.info('======================validation / test======================')
+                logger.info('====================== validation / test ======================')
                 test_summary, test_loss, test_acc, y_pred = sess.run(
                     [self.merged, self.loss_val, self.accuracy, self.predictions],
                     feed_dict={self.input_x: dev_X,
@@ -259,14 +255,20 @@ class TextCNN:
 
         logger.info("model save in {}".format(checkpoints_path))
 
-    def predict(self, sess, seqs):
+    def predict(self, sess, seqs, demo=True):
         """预测标签"""
-        input_X = dev2vec(seqs, word_dict=self.vocab, max_seq_len=self.sequence_length)
+        if demo:
+            input_X = dev2vec(seqs, word_dict=self.vocab, max_seq_len=self.sequence_length)
+        else:
+            input_X, _ = pad_sequences(seqs)
         predictions = sess.run(self.predictions, feed_dict={self.input_x: input_X, self.keep_prob: 1.0, self.tst: True})
         return predictions
 
-    def predict_prob(self, sess, seqs):
+    def predict_prob(self, sess, seqs, demo=True):
         """预测概率"""
-        input_X = dev2vec(seqs, word_dict=self.vocab, max_seq_len=self.sequence_length)
+        if demo:
+            input_X = dev2vec(seqs, word_dict=self.vocab, max_seq_len=self.sequence_length)
+        else:
+            input_X, _ = pad_sequences(seqs)
         possibility = sess.run(self.possibility, feed_dict={self.input_x: input_X, self.keep_prob: 1.0, self.tst: True})
         return possibility

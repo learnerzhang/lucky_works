@@ -9,8 +9,11 @@ import os
 import json
 import jieba
 import codecs
+import random
 import numpy as np
 import tensorflow as tf
+from tqdm import tqdm
+
 from utils.path import DATA_PATH
 
 
@@ -38,50 +41,63 @@ def conlleval(label_predict, label_path, metric_path):
     return metrics
 
 
-def read_corpus(test_size=0.2, random_state=1234, nums=1000, separator='$'):
+def read_corpus(random_state=1234, separator='\t', iter=-1, iter_size=10000):
     """
     获取数据, 保证均衡
-    :param test_size:
     :param random_state:
-    :param nums:
     :param separator:
     :return:
     """
     import collections
     tmp_results = collections.defaultdict(list)
-    with codecs.open(DATA_PATH + os.sep + 'dev.txt', encoding='utf-8') as f:
-        for line in f.readlines():
+    with codecs.open(DATA_PATH + os.sep + 'train.tsv', encoding='utf-8') as f:
+        for line in tqdm(f.readlines()):
+            if line.startswith("####") or line.startswith("$$$$"):
+                continue
             line = line.strip()
             tokens = line.split(separator)
-            if len(tokens) != 2:
+            if len(tokens) < 2:
                 continue
-            tmp_results[tokens[0]].append((tokens[1], tokens[0]))
+            elif len(tokens) == 2:
+                tmp_results[tokens[0]].append((tokens[1], tokens[0]))
+            else:
+                tmp_results[tokens[0]].append(("".join(tokens[1:None]), tokens[0]))
 
     # all or part
-    if nums < 0:
-        nums = len(tmp_results)
-
-    # shuffle list
-    np.random.seed(random_state)
-    k_num = int((nums + 1) / len(tmp_results))
-
     train = []
-    dev = []
+    np.random.seed(random_state)
     for k, v in tmp_results.items():
-        np.random.shuffle(v)
-
-        choice_num = len(v)
-        if len(v) > k_num:
-            choice_num = k_num
-
-        k_test_num = int(choice_num * test_size)
-        dev.extend(v[: k_test_num])
-        train.extend(v[k_test_num:choice_num])
+        if iter < 0:
+            train.extend(random.sample(v, iter_size))
+        else:
+            start = iter * iter_size
+            train.extend(v[start: start + iter_size])
 
     np.random.shuffle(train)
-    np.random.shuffle(dev)
-
+    # DEV
+    dev = [(''.join(line.split(separator)[1:None]), line.split(separator)[0]) for line in
+           tqdm(codecs.open(DATA_PATH + os.sep + 'dev.tsv', encoding='utf-8').readlines()) if
+           not (line.startswith("####") or line.startswith("$$$$")) and len(line.split(separator)) >= 2]
     return train, dev
+
+
+def read_test_corpus(separator='\t', ):
+    results = []
+    with codecs.open(DATA_PATH + os.sep + 'test.tsv', encoding='utf-8') as f:
+        for line in tqdm(f.readlines()):
+            if line.startswith("####") or line.startswith("$$$$"):
+                continue
+            line = line.strip()
+            tokens = line.split(separator)
+            if len(tokens) < 2:
+                continue
+            elif len(tokens) == 2:
+                results.append((tokens[1], tokens[0]))
+            else:
+                results.append(("".join(tokens[1:None]), tokens[0]))
+    # np.random.seed(random_state)
+    # np.random.shuffle(results)
+    return results
 
 
 def batch_yield(data, batch_size, vocab, tag2label, max_seq_len=128, shuffle=False):
@@ -97,7 +113,7 @@ def batch_yield(data, batch_size, vocab, tag2label, max_seq_len=128, shuffle=Fal
         np.random.shuffle(data)
 
     seqs, labels = [], []
-    for (sent_, tag_) in data:
+    for (sent_, tag_) in tqdm(data):
         sent_ = word2id(sent_, vocab, max_seq_len=max_seq_len)
         label_ = tag2label[tag_]
 

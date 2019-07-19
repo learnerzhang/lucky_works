@@ -133,7 +133,7 @@ def demo():
     with tf.compat.v1.Session(config=cfg()) as sess:
         print('============= demo =============')
         saver.restore(sess, ckpt_file)
-        while (1):
+        while True:
             print('Please input your sentence:')
             inp = input()
             if inp == '' or inp.isspace():

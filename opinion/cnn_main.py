@@ -10,8 +10,9 @@ import os
 import time
 
 import tensorflow as tf
+from sklearn.metrics import classification_report
 
-from utils.dl_utils import load_dict, read_corpus
+from utils.dl_utils import load_dict, read_corpus, read_test_corpus, batch_yield, pad_sequences
 from opinion.model.tf_text_cnn import TextCNN
 from utils.path import MODEL_PATH
 
@@ -42,7 +43,7 @@ def args():
     parser.add_argument("--filter_sizes", type=list, default=[2, 3, 4], help='filter size')
     parser.add_argument("--num_filters", type=int, default=128, help='num filters')
     parser.add_argument('--mode', type=str, default='test', help='train|test|demo')
-    parser.add_argument('--DEMO', type=str, default='1563435516', help='model for test and demo')
+    parser.add_argument('--DEMO', type=str, default='1563502540', help='model for test and demo')
     return parser.parse_known_args()
 
 
@@ -66,11 +67,13 @@ def read_dict():
 
 def train():
     tag2label = {'good': 0, 'bad': 1}
-    train, dev = read_corpus(test_size=0.2, random_state=1234, separator='$0', nums=50000)
-    word2int, int2word = read_dict()
+    iter = -1
+    iter_size = 10000
+    train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
 
+    word2int, int2word = read_dict()
     textCNN = TextCNN(config=cfg(),
-                      model_path=MODEL_PATH + os.sep + str(int(time.time())),
+                      model_path=os.path.join(MODEL_PATH, "iter_{}_{}".format(str(iter + 1), iter_size)),
                       vocab=word2int,
                       tag2label=tag2label,
                       batch_size=FLAGS.batch_size,
@@ -80,9 +83,11 @@ def train():
 
 def test():
     word2int, int2word = read_dict()
-
     tag2label = {'good': 0, 'bad': 1}
     int2tag = {l: t for t, l in tag2label.items()}
+    target_names = [int2tag[i] for i in range(len(int2tag))]
+
+    test = read_test_corpus()
 
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')
     print(model_path)
@@ -93,24 +98,35 @@ def test():
                       model_path=ckpt_file,
                       vocab=word2int,
                       tag2label=tag2label,
-                      eopches=FLAGS.epoches,
-                      is_training=False)
+                      sequence_length=FLAGS.sequence_length,
+                      eopches=FLAGS.epoches, )
 
     saver = tf.compat.v1.train.Saver()
     with tf.compat.v1.Session(config=cfg()) as sess:
-        print('============= demo =============')
+        print('============= TEST RESULT =============')
         saver.restore(sess, ckpt_file)
 
-        inps = ['卡布奇诺瑞纳冰已经胜过我爱的星爸爸',
-                '非常好，店长给我耐心的推荐不同口味，skr', '比app通知的时间晚太多做好',
-                '可以，还可以更好！', '巧克力有点腻', '太冰了没有加热', '商品未送到提前点击已送达，且无电话通知。']
-        results = textCNN.predict(sess, inps)
-        probs = textCNN.predict_prob(sess, inps)
-        for inp, r, prob in zip(inps, results, probs):
-            print("\n{}".format(inp))
-            for idx, p in enumerate(prob):
-                print("\t{} -> {}".format(int2tag[idx], p))
-            print("\tTag: {}".format(int2tag[r]))
+        test_batch_size = 2000
+
+        true_y = []
+        pred_y = []
+        for tx, ty in batch_yield(test, test_batch_size, word2int, tag2label, max_seq_len=FLAGS.sequence_length,
+                                  shuffle=True):
+            preds = textCNN.predict(sess, tx, demo=False)
+            true_y.extend(ty)
+            pred_y.extend(preds)
+            print()
+            print(classification_report(ty, preds, target_names=target_names))
+            print()
+
+        print('============= FINAL TEST RESULT =============')
+        print(classification_report(true_y, pred_y, target_names=target_names))
+        # probs = textCNN.predict_prob(sess, inps)
+        # for inp, r, prob in zip(inps, results, probs):
+        #     print("\n{}".format(inp))
+        #     for idx, p in enumerate(prob):
+        #         print("\t{} -> {}".format(int2tag[idx], p))
+        #     print("\tTag: {}".format(int2tag[r]))
 
 
 def demo():
@@ -127,14 +143,13 @@ def demo():
                       model_path=ckpt_file,
                       vocab=word2int,
                       tag2label=tag2label,
-                      eopches=FLAGS.epoches,
-                      is_training=False)
+                      eopches=FLAGS.epoches, )
 
     saver = tf.compat.v1.train.Saver()
     with tf.compat.v1.Session(config=cfg()) as sess:
         print('============= demo =============')
         saver.restore(sess, ckpt_file)
-        while (1):
+        while True:
             print('Please input your sentence:')
             inp = input()
             if inp == '' or inp.isspace():
@@ -144,7 +159,7 @@ def demo():
                 inps = [inp.strip()]
                 pred = textCNN.predict(sess, inps)[0]
                 probs = textCNN.predict_prob(sess, inps)[0]
-
+                print(probs)
                 print("\n{}".format(inps))
                 for idx, prob in enumerate(probs):
                     print("\t{} -> {}".format(int2tag[idx], prob))

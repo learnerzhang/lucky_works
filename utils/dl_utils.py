@@ -7,6 +7,8 @@
 # @Software: PyCharm
 import os
 import json
+from typing import List
+
 import jieba
 import codecs
 import random
@@ -103,6 +105,10 @@ def read_target_test_corpus(separator='\t', ):
                   tqdm(codecs.open(DATA_PATH + os.sep + 'target_reply_good.tsv', encoding='utf-8').readlines()) if
                   len(line.split(separator)) >= 2]
     return reply_good, reply_bad, tests
+
+
+def persist(lines: List, filepath: str):
+    codecs.open(filename=filepath, mode='w+', encoding='utf-8').writelines(lines)
 
 
 def batch_yield(data, batch_size, vocab, tag2label, max_seq_len=128, shuffle=False):
@@ -203,3 +209,8 @@ def variable_summaries(var):
         tf.compat.v1.summary.scalar("max", tf.reduce_mean(var))
         tf.compat.v1.summary.scalar("min", tf.reduce_min(var))
         tf.compat.v1.summary.histogram("histogram", var)
+
+
+if __name__ == '__main__':
+    char_dict, char_dict_re = load_dict()
+    print("word nums:", len(char_dict))

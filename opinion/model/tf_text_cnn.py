@@ -7,11 +7,13 @@
 # @Software: PyCharm
 import sys
 import time
-
+import numpy as np
 import tensorflow as tf
 import logging
 import os
 from sklearn.metrics import classification_report
+from tqdm import tqdm
+
 from utils.dl_utils import variable_summaries, batch_yield, pad_sequences, dev2vec
 
 # logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -21,11 +23,10 @@ logger.setLevel(logging.DEBUG)
 
 class TextCNN:
 
-    def __init__(self, config, model_path, vocab, tag2label, embed_size=300, batch_size=64, eopches=10,
+    def __init__(self, model_path, vocab, tag2label, embed_size=300, batch_size=64, eopches=10,
                  sequence_length=50, filter_sizes=[2, 3, 4], num_filters=128, lr=0.001, decay_rate=0.99, keep_rate=0.5,
                  lip_gradients=5.0, decay_steps=10000, initializer=tf.random_normal_initializer(stddev=0.1)):
 
-        self.config = config
         self.model_path = model_path
         # set hyperparamter
         self.tag2label = tag2label
@@ -79,6 +80,9 @@ class TextCNN:
         correct_prediction = tf.equal(tf.cast(self.predictions, tf.int32), self.input_y)
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="Accuracy")  # shape=()
         tf.compat.v1.summary.scalar("accuracy", self.accuracy)
+
+    def set_model_path(self, model_path):
+        self.model_path = model_path
 
     def instantiate_weights(self):
         """define all weights here"""
@@ -187,71 +191,86 @@ class TextCNN:
                                               optimizer="Adam", clip_gradients=self.clip_gradients)
         return opt
 
-    def train(self, train, dev, shuffle=True):
+    def train(self, sess, train, dev, shuffle=True):
         checkpoints_path = None
         saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
 
-        dev_X = dev2vec([sent_ for (sent_, tag_) in dev], word_dict=self.vocab, max_seq_len=self.sequence_length)
-        dev_y = [self.tag2label[tag_] for (sent_, tag_) in dev]
+        # DEV split
+        dev_batches = \
+            list(batch_yield(dev, 1000, self.vocab, self.tag2label, max_seq_len=self.sequence_length, shuffle=shuffle))
+        # DEV padding
+        dev_batches = [(pad_sequences(dev_seqs)[0], dev_labels) for (dev_seqs, dev_labels) in dev_batches]
 
-        with tf.compat.v1.Session(config=self.config) as sess:
+        # with tf.compat.v1.Session(config=self.config) as sess:
+        sess.run(tf.compat.v1.global_variables_initializer())
+        self.merged = tf.compat.v1.summary.merge_all()
 
-            sess.run(tf.compat.v1.global_variables_initializer())
-            self.merged = tf.compat.v1.summary.merge_all()
+        train_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'train', sess.graph)
+        test_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'test')
 
-            train_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'train',
-                                                           sess.graph)
-            test_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'test')
+        for epoch in range(self.eopches):
+            num_batches = (len(train) + self.batch_size - 1) // self.batch_size
+            st = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
-            for epoch in range(self.eopches):
-                num_batches = (len(train) + self.batch_size - 1) // self.batch_size
-                st = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            # 已经完成 token -> id 的转化
+            batches = batch_yield(train, self.batch_size, self.vocab, self.tag2label,
+                                  max_seq_len=self.sequence_length, shuffle=shuffle)
 
-                # 已经完成 token -> id 的转化
-                batches = batch_yield(train, self.batch_size, self.vocab, self.tag2label,
-                                      max_seq_len=self.sequence_length, shuffle=shuffle)
+            for step, (seqs, labels) in enumerate(batches):
+                b_x, b_len_x = pad_sequences(seqs)
+                b_y = labels  # PADDING
 
-                for step, (seqs, labels) in enumerate(batches):
-                    b_x, b_len_x = pad_sequences(seqs)
-                    b_y = labels  # PADDING
+                sys.stdout.write(' processing: {} batch / {} batches.'.format(step + 1, num_batches) + '\r')
+                step_num = epoch * num_batches + step + 1
+                summary, loss, possibility, W_projection_value, acc, _ = sess.run(
+                    [self.merged, self.loss_val, self.possibility, self.W_projection, self.accuracy, self.train_op],
+                    feed_dict={self.input_x: b_x,
+                               self.input_y: b_y,
+                               self.keep_prob: 1 - self.rate,
+                               self.tst: False})
 
-                    sys.stdout.write(' processing: {} batch / {} batches.'.format(step + 1, num_batches) + '\r')
-                    step_num = epoch * num_batches + step + 1
+                train_writer.add_summary(summary, step_num)
+                if step + 1 == 1 or (step + 1) % 100 == 0 or step + 1 == num_batches:
+                    logger.info('{} <TRAIN> epoch: {}, step: {}, loss: {:.4}, global_step: {}, acc: {}'
+                                .format(st, epoch + 1, step + 1, loss, step_num, acc))
 
-                    summary, loss, possibility, W_projection_value, acc, _ = sess.run(
-                        [self.merged, self.loss_val, self.possibility, self.W_projection, self.accuracy, self.train_op],
-                        feed_dict={self.input_x: b_x,
-                                   self.input_y: b_y,
-                                   self.keep_prob: 1 - self.rate,
-                                   self.tst: False})
+                if step + 1 == num_batches:
+                    checkpoints_path = os.path.join(self.model_path, "checkpoints")
 
-                    train_writer.add_summary(summary, step_num)
-                    if step + 1 == 1 or (step + 1) % 100 == 0 or step + 1 == num_batches:
-                        logger.info('{} <TRAIN> epoch: {}, step: {}, loss: {:.4}, global_step: {}, acc: {}'
-                                    .format(st, epoch + 1, step + 1, loss, step_num, acc))
+                    if not os.path.exists(checkpoints_path):
+                        os.makedirs(checkpoints_path)
 
-                    if step + 1 == num_batches:
-                        checkpoints_path = os.path.join(self.model_path, "checkpoints")
+                    saver.save(sess, checkpoints_path + os.sep + "model", global_step=step_num)
 
-                        if not os.path.exists(checkpoints_path):
-                            os.makedirs(checkpoints_path)
+            # DEV
+            logger.info('====================== validation / test ======================')
+            _step = (epoch + 1) * num_batches
+            y_trues, y_preds = [], []
+            tmp_loss, tmp_acc = [], []
+            for dev_step, (dev_X, dev_y) in tqdm(enumerate(dev_batches)):
+                if dev_step == 0:
+                    test_summary, test_loss, test_acc, y_pred = \
+                        sess.run([self.merged, self.loss_val, self.accuracy, self.predictions],
+                                 feed_dict={self.input_x: dev_X,
+                                            self.input_y: dev_y,
+                                            self.keep_prob: 1.0,
+                                            self.tst: True})
+                    test_writer.add_summary(test_summary, _step)
+                else:
+                    test_loss, test_acc, y_pred = sess.run([self.loss_val, self.accuracy, self.predictions],
+                                                           feed_dict={self.input_x: dev_X,
+                                                                      self.input_y: dev_y,
+                                                                      self.keep_prob: 1.0,
+                                                                      self.tst: True})
+                y_trues.extend(dev_y)
+                y_preds.extend(y_pred)
 
-                        saver.save(sess, checkpoints_path + os.sep + "model", global_step=step_num)
+                tmp_loss.append(test_loss)
+                tmp_acc.append(test_acc)
 
-                # DEV
-                logger.info('====================== validation / test ======================')
-                test_summary, test_loss, test_acc, y_pred = sess.run(
-                    [self.merged, self.loss_val, self.accuracy, self.predictions],
-                    feed_dict={self.input_x: dev_X,
-                               self.input_y: dev_y,
-                               self.keep_prob: 1.0,
-                               self.tst: True})
-
-                _step = (epoch + 1) * num_batches
-                test_writer.add_summary(test_summary, _step)
-                logger.info("{} <DEV> epoch: {} | step: {} | loss:{} | acc: {} ".format(st, epoch + 1, _step, test_loss,
-                                                                                        test_acc))
-                print(classification_report(dev_y, y_pred, target_names=self.target_names))
+            logger.info("{} <DEV> epoch: {} | step: {} | loss:{} | acc: {} "
+                        .format(st, epoch + 1, _step, np.average(tmp_loss), np.average(tmp_acc)))
+            print(classification_report(y_trues, y_preds, target_names=self.target_names))
 
         logger.info("model save in {}".format(checkpoints_path))
 

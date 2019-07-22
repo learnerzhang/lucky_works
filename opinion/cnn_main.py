@@ -46,7 +46,7 @@ def args():
     parser.add_argument("--filter_sizes", type=list, default=[2, 3, 4], help='filter size')
     parser.add_argument("--num_filters", type=int, default=128, help='num filters')
     parser.add_argument('--mode', type=str, default='test', help='train|test|demo|retrain')
-    parser.add_argument('--DEMO', type=str, default='iter_1_size_10000_epochs_10', help='model for test and demo')
+    parser.add_argument('--DEMO', type=str, default='1563502540', help='model for test and demo')
     return parser.parse_known_args()
 
 
@@ -72,7 +72,7 @@ def re_train():
     word2int, int2word = read_dict()
 
     tag2label = {'0': 0, '1': 1}
-    iter = 2
+    iter = 1
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
 
@@ -87,12 +87,12 @@ def re_train():
                       eopches=FLAGS.epoches, )
 
     saver = tf.compat.v1.train.Saver()
-    next_mp = "iter_{}_size_{}_epochs_{}".format(str(iter), iter_size, FLAGS.epoches)
+    next_mp = "iter_{}_size_{}_epochs_{}".format(str(iter - 1), iter_size, FLAGS.epoches)
 
     with tf.compat.v1.Session(config=cfg()) as sess:
         saver.restore(sess, ckpt_file)
         textCNN.set_model_path(model_path=os.path.join(MODEL_PATH, next_mp))
-        textCNN.train(sess, train, dev, shuffle=True)
+        textCNN.train(sess, train, dev, shuffle=True, re_train=True)
 
 
 def train():
@@ -219,6 +219,7 @@ def use_for_tagging():
 
     persist(reply_goods_errors, os.path.join(DATA_PATH, "reply_goods_errors.txt"))
     print("reply_goods_errors nums:", len(reply_goods_errors))
+
 
 def demo():
     word2int, int2word = read_dict()

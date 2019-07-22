@@ -10,11 +10,9 @@ import os
 import time
 
 import tensorflow as tf
-
-from opinion.dl_utils import load_dict, read_corpus
-from opinion.model.path import MODEL_PATH
-from opinion.model.tf_text_cnn import TextCNN
 from opinion.model.tf_text_rnn import TextAttRNN
+from utils.dl_utils import load_dict, read_corpus
+from utils.path import MODEL_PATH
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -43,7 +41,7 @@ def args():
     parser.add_argument("--filter_sizes", type=list, default=[2, 3, 4], help='filter size')
     parser.add_argument("--num_filters", type=int, default=128, help='num filters')
     parser.add_argument('--mode', type=str, default='test', help='train|test|demo')
-    parser.add_argument('--DEMO', type=str, default='1563433294', help='model for test and demo')
+    parser.add_argument('--DEMO', type=str, default='rnn_iter_0_size_10000_epochs_20', help='model for test and demo')
     return parser.parse_known_args()
 
 
@@ -66,24 +64,28 @@ def read_dict():
 
 
 def train():
-    tag2label = {'good': 0, 'bad': 1}
-    train, dev = read_corpus(test_size=0.33, random_state=42, separator='$0', nums=40000)
+    tag2label = {'0': 0, '1': 1}
+    iter = -1
+    iter_size = 10000
+    train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
     word2int, int2word = read_dict()
 
+    mp = "rnn_iter_{}_size_{}_epochs_{}".format(str(iter + 1), iter_size, FLAGS.epoches)
     textCNN = TextAttRNN(config=cfg(),
-                         model_path=MODEL_PATH + os.sep + str(int(time.time())),
+                         model_path=MODEL_PATH + os.sep + mp,
                          vocab=word2int,
                          tag2label=tag2label,
                          batch_size=FLAGS.batch_size,
                          eopches=FLAGS.epoches)
 
-    textCNN.train(train, dev, shuffle=True)
+    with tf.compat.v1.Session(config=cfg()) as sess:
+        textCNN.train(sess, train, dev, shuffle=True)
 
 
 def test():
     word2int, int2word = read_dict()
 
-    tag2label = {'good': 0, 'bad': 1}
+    tag2label = {'0': 0, '1': 1}
     int2tag = {l: t for t, l in tag2label.items()}
 
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')

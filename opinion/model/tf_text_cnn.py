@@ -23,9 +23,9 @@ logger.setLevel(logging.DEBUG)
 
 class TextCNN:
 
-    def __init__(self, model_path, vocab, tag2label, embed_size=300, batch_size=64, eopches=10,
-                 sequence_length=50, filter_sizes=[2, 3, 4], num_filters=128, lr=0.001, decay_rate=0.99, keep_rate=0.5,
-                 lip_gradients=5.0, decay_steps=10000, initializer=tf.random_normal_initializer(stddev=0.1)):
+    def __init__(self, model_path, vocab, tag2label, embed_size=300, batch_size=64, eopches=10, sequence_length=50,
+                 filter_sizes=[2, 3, 4], num_filters=128, lr=0.001, decay_rate=0.99, keep_rate=0.5, lip_gradients=5.0,
+                 decay_steps=10000, initializer=tf.random_normal_initializer(stddev=0.1)):
 
         self.model_path = model_path
         # set hyperparamter
@@ -62,6 +62,7 @@ class TextCNN:
 
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
         self.epoch_step = tf.Variable(0, trainable=False, name="Epoch_Step")
+
         self.epoch_increment = tf.compat.v1.assign(self.epoch_step, tf.add(self.epoch_step, tf.constant(1)))
         self.b1 = tf.Variable(tf.ones([self.num_filters]) / 10)
         self.b2 = tf.Variable(tf.ones([self.num_filters]) / 10)
@@ -191,7 +192,7 @@ class TextCNN:
                                               optimizer="Adam", clip_gradients=self.clip_gradients)
         return opt
 
-    def train(self, sess, train, dev, shuffle=True):
+    def train(self, sess, train, dev, shuffle=True, re_train=False):
         checkpoints_path = None
         saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
 
@@ -202,10 +203,12 @@ class TextCNN:
         dev_batches = [(pad_sequences(dev_seqs)[0], dev_labels) for (dev_seqs, dev_labels) in dev_batches]
 
         # with tf.compat.v1.Session(config=self.config) as sess:
-        sess.run(tf.compat.v1.global_variables_initializer())
-        self.merged = tf.compat.v1.summary.merge_all()
+        if not re_train:
+            sess.run(tf.compat.v1.global_variables_initializer())
 
-        train_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'train', sess.graph)
+        self.merged = tf.compat.v1.summary.merge_all()
+        train_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'train',
+                                                       sess.graph)
         test_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'test')
 
         for epoch in range(self.eopches):

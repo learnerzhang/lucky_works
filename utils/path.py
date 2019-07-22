@@ -14,3 +14,4 @@ LOG_PATH = os.path.join(sys.path[1], 'data', 'output', 'logs')
 
 # print(sys.path)
 # print(DATA_PATH, '\n', MODEL_PATH, '\n', LOG_PATH)
+MINIST_PATH = '/Users/zhangzhen/data/minist'

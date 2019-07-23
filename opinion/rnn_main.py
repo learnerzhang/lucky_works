@@ -72,7 +72,7 @@ def train():
 
     mp = "rnn_iter_{}_size_{}_epochs_{}".format(str(iter + 1), iter_size, FLAGS.epoches)
     textCNN = TextAttRNN(config=cfg(),
-                         model_path=MODEL_PATH + os.sep + mp,
+                         model_path=os.path.join(MODEL_PATH, 'tf_rnn', mp),
                          vocab=word2int,
                          tag2label=tag2label,
                          batch_size=FLAGS.batch_size,

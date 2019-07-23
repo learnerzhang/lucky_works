@@ -169,14 +169,6 @@ def load_dict():
         char_dict = json.load(fin)
     for k, v in char_dict.items():
         char_dict_re[v] = k
-
-    char_dict['PAD'] = 0
-    char_dict_re[0] = 'PAD'
-
-    unk_idx = len(char_dict)
-    char_dict['UNK'] = unk_idx
-    char_dict_re[unk_idx] = 'UNK'
-
     return char_dict, char_dict_re
 
 

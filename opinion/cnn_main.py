@@ -72,12 +72,12 @@ def re_train():
     word2int, int2word = read_dict()
 
     tag2label = {'0': 0, '1': 1}
-    iter = 1
+    iter = 3
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
 
     loda_mp = "iter_{}_size_{}_epochs_{}".format(str(iter - 1), iter_size, FLAGS.epoches)
-    model_path = os.path.join(MODEL_PATH, loda_mp, 'checkpoints')
+    model_path = os.path.join(MODEL_PATH, "tf_cnn", loda_mp, 'checkpoints')
     ckpt_file = tf.train.latest_checkpoint(model_path)
     logger.info("load pre-train model from {}".format(ckpt_file))
     textCNN = TextCNN(model_path=ckpt_file,
@@ -87,24 +87,25 @@ def re_train():
                       eopches=FLAGS.epoches, )
 
     saver = tf.compat.v1.train.Saver()
-    next_mp = "iter_{}_size_{}_epochs_{}".format(str(iter - 1), iter_size, FLAGS.epoches)
+    next_mp = "iter_{}_size_{}_epochs_{}".format(str(iter), iter_size, FLAGS.epoches)
 
     with tf.compat.v1.Session(config=cfg()) as sess:
         saver.restore(sess, ckpt_file)
-        textCNN.set_model_path(model_path=os.path.join(MODEL_PATH, next_mp))
+        textCNN.set_model_path(model_path=os.path.join(MODEL_PATH, "tf_cnn", next_mp))
         textCNN.train(sess, train, dev, shuffle=True, re_train=True)
 
 
 def train():
     tag2label = {'0': 0, '1': 1}
-    iter = -1
+    iter = 0
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
     word2int, int2word = read_dict()
 
     mp = "iter_{}_size_{}_epochs_{}".format(str(iter + 1), iter_size, FLAGS.epoches)
     textCNN = TextCNN(
-        model_path=os.path.join(MODEL_PATH, mp),
+        # model_path=os.path.join(MODEL_PATH, str(int(time.time()))),
+        model_path=os.path.join(MODEL_PATH, "tf_cnn", mp),
         vocab=word2int,
         tag2label=tag2label,
         batch_size=FLAGS.batch_size,

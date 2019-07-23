@@ -197,16 +197,15 @@ class TextCNN:
         saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
 
         # DEV split
-        dev_batches = \
-            list(batch_yield(dev, 1000, self.vocab, self.tag2label, max_seq_len=self.sequence_length, shuffle=shuffle))
-        # DEV padding
-        dev_batches = [(pad_sequences(dev_seqs)[0], dev_labels) for (dev_seqs, dev_labels) in dev_batches]
+        dev_batches = list(
+            batch_yield(dev, 1000, self.vocab, self.tag2label, max_seq_len=self.sequence_length, shuffle=shuffle))
 
         # with tf.compat.v1.Session(config=self.config) as sess:
         if not re_train:
             sess.run(tf.compat.v1.global_variables_initializer())
 
         self.merged = tf.compat.v1.summary.merge_all()
+
         train_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'train',
                                                        sess.graph)
         test_writer = tf.compat.v1.summary.FileWriter(self.model_path + os.sep + "summaries" + os.sep + 'test')

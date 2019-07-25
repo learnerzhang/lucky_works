@@ -145,7 +145,7 @@ class TextAttBiRNN(nn.Module):
         outputs = self(inputs)
         return torch.argmax(outputs, dim=1).numpy()
 
-    def predict_probs(self, seqs, demo=True):
+    def predict_prob(self, seqs, demo=True):
         if demo:
             input_X = dev2vec(seqs, word_dict=self.vocab, max_seq_len=self.sequence_length)
         else:
@@ -218,7 +218,7 @@ class TextAttBiRNN(nn.Module):
 
             if not os.path.exists(self.model_path):
                 os.makedirs(self.model_path)
-            torch.save(self.state_dict(), os.path.join(self.model_path, "model_{}.pth".format(str(epoch + 1))))
+            torch.save(self.state_dict(), os.path.join(self.model_path, "model.pth"))
 
             # print(sum(y_trues), "|", sum(y_preds), "|", sum(tmp_loss), "|", sum(tmp_acc), "|", )
             logger.info("{} <DEV> epoch: {} | step: {} | loss:{} | acc: {} "

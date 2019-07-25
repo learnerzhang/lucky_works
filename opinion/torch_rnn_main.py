@@ -45,7 +45,7 @@ def args():
     parser.add_argument("--filter_sizes", type=list, default=[2, 3, 4], help='filter size')
     parser.add_argument("--num_filters", type=int, default=128, help='num filters')
     parser.add_argument('--mode', type=str, default='train', help='train|test|demo|retrain')
-    parser.add_argument('--DEMO', type=str, default='iter_1_size_10000_epochs_10', help='model for test and demo')
+    parser.add_argument('--DEMO', type=str, default='torch_rnn', help='model for test and demo')
     return parser.parse_known_args()
 
 
@@ -64,12 +64,12 @@ def re_train():
     word2int, int2word = read_dict()
 
     tag2label = {'0': 0, '1': 1}
-    iter = 2
+    iter = 4
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
 
-    mp = os.path.join("iter_{}_size_{}_epochs_{}".format(str(iter - 1), iter_size, FLAGS.epoches), "model_3.pth")
-    model_path = os.path.join(MODEL_PATH, "torch_rnn", mp)
+    mp = 'torch_rnn'
+    model_path = os.path.join(MODEL_PATH, mp, 'model.pth')
 
     logger.info("load pre-train model from {}".format(model_path))
     textRNN = TextAttBiRNN(model_path=model_path,
@@ -82,9 +82,7 @@ def re_train():
                          layer_size=2, )
 
     textRNN.load_state_dict(torch.load(model_path), strict=False)
-
-    next_mp = "iter_{}_size_{}_epochs_{}".format(str(iter), iter_size, FLAGS.epoches)
-    textRNN.set_model_path(model_path=os.path.join(MODEL_PATH, "torch_rnn", next_mp))
+    textRNN.set_model_path(model_path=os.path.join(MODEL_PATH, mp))
 
     textRNN.train(train, dev, shuffle=True, re_train=True)
 
@@ -96,9 +94,9 @@ def train():
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
     word2int, int2word = read_dict()
 
-    mp = "iter_{}_size_{}_epochs_{}".format(str(iter + 1), iter_size, FLAGS.epoches)
+    mp = "torch_rnn".format(str(iter + 1), iter_size, FLAGS.epoches)
 
-    model = TextAttBiRNN(model_path=os.path.join(MODEL_PATH, "torch_rnn", mp),
+    model = TextAttBiRNN(model_path=os.path.join(MODEL_PATH, "", mp),
                          vocab=word2int,
                          tag2label=tag2label,
                          bidirectional=True,
@@ -115,10 +113,10 @@ def test():
     # 测试数据
     tag2label = {'0': 0, '1': 1}
     target_names = ['good', 'bad']
-    model_path = os.path.join(MODEL_PATH, "torch_rnn", FLAGS.DEMO, "model_3.pth")
+    model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, "model.pth")
     logger.info("load pre-train model from {}".format(model_path))
     # model_path = os.path.join(MODEL_PATH, mp),
-    textRNN = TextAttBiRNN(model_path=model_path,
+    textAttRNN = TextAttBiRNN(model_path=model_path,
                            vocab=word2int,
                            tag2label=tag2label,
                            bidirectional=True,
@@ -129,7 +127,7 @@ def test():
 
     # textRNN = nn.DataParallel(textRNN)
     logger.info("Load torch model from {}".format(model_path))
-    textRNN.load_state_dict(torch.load(model_path), strict=False)
+    textAttRNN.load_state_dict(torch.load(model_path), strict=False)
     print('============= TEST RESULT =============')
 
     test_batch_size = 5000
@@ -138,7 +136,7 @@ def test():
     pred_y = []
     for tx, ty in batch_yield(test, test_batch_size, word2int, tag2label, max_seq_len=FLAGS.sequence_length,
                               shuffle=True):
-        preds = textRNN.predict(tx, demo=False)
+        preds = textAttRNN.predict(tx, demo=False)
         true_y.extend(ty)
         pred_y.extend(preds)
         print()
@@ -154,7 +152,7 @@ def test():
     test_batch_size = 5000
     for tx, ty in batch_yield(reply_good, test_batch_size, word2int, tag2label, max_seq_len=FLAGS.sequence_length,
                               shuffle=False):
-        preds = textRNN.predict(tx, demo=False)
+        preds = textAttRNN.predict(tx, demo=False)
         true_y.extend(ty)
         pred_y.extend(preds)
     print('============= FINAL TEST REPLY GOOD RESULT =============')
@@ -166,7 +164,7 @@ def test():
     test_batch_size = 5000
     for tx, ty in batch_yield(reply_bad, test_batch_size, word2int, tag2label, max_seq_len=FLAGS.sequence_length,
                               shuffle=False):
-        preds = textRNN.predict(tx, demo=False)
+        preds = textAttRNN.predict(tx, demo=False)
         true_y.extend(ty)
         pred_y.extend(preds)
     print('============= FINAL TEST REPLY BAD RESULT =============')
@@ -191,7 +189,7 @@ def use_for_tagging():
 
     logger.info("load model from {}".format(model_path))
 
-    textCNN = TextAttBiRNN(model_path=model_path,
+    textAttRNN = TextAttBiRNN(model_path=model_path,
                            vocab=word2int,
                            tag2label=tag2label,
                            eopches=FLAGS.epoches, )
@@ -226,9 +224,13 @@ def demo():
     logger.info("load model from {}".format(model_path))
 
     textAttRNN = TextAttBiRNN(model_path=model_path,
-                              vocab=word2int,
-                              tag2label=tag2label,
-                              eopches=FLAGS.epoches, )
+                           vocab=word2int,
+                           tag2label=tag2label,
+                           bidirectional=True,
+                           sequence_length=FLAGS.sequence_length,
+                           epoches=FLAGS.epoches,
+                           batch_size=FLAGS.batch_size,
+                           layer_size=2, )
 
     print('============= demo =============')
     while True:

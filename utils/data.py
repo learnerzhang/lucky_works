@@ -9,12 +9,17 @@ import numpy as np
 import collections
 import codecs
 import pickle
+import itertools
 import json
 import jieba
 import os
-
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+
+mpl.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # enable chinese
+mpl.rcParams['font.size'] = 10
 
 root = '/Users/zhangzhen/Downloads/luckin/p'
 # SQL 导出
@@ -24,8 +29,13 @@ feedback_file = '60356-意见反馈查询.csv'
 comment_file = '60360-订单评论查询.csv'
 
 # 初次整理
-comment_good = "comment_good.txt"
-comment_bad = "comment_bad.txt"
+comment_good = "good.txt"
+comment_bad = "bad.txt"
+
+comments = "all_comments.txt"
+opinions = "all_opinions.txt"
+emergency_opinion = "emergency_train.tsv"
+
 SPAN = "###############=============={}===============\n"
 
 
@@ -84,7 +94,7 @@ def read_feedback_opinions():
 
 def read_comments():
     """订单评论信息处理
-        对 csv 数据处理, 分别区分各类数据, 并去除
+        对 csv 数据处理.MD, 分别区分各类数据, 并去除
     """
     # level,$0, label,$1, comment,$2, reply,$3, remark
     # level 0 -> 差评，level 1 -> 好评
@@ -303,7 +313,68 @@ def read_corpus(sequence_length=50, sparse=True):
     return vocab2int, int2vocab, label2int, int2label, (X, y)
 
 
+def static_length():
+    """
+    统计意见, 评论的长短分布
+    :return:
+    """
+    # TAG = "意见反馈"
+    TAG = "订单评论"
+    TAG = "紧急工单"
+    len_counts = collections.defaultdict(int)
+    # with codecs.open(os.path.join(root, opinions), encoding='utf-8') as f:
+    # with codecs.open(os.path.join(root, comments), encoding='utf-8') as f:
+    with codecs.open(os.path.join(root, emergency_opinion), encoding='utf-8') as f:
+        lines = [line.strip() for line in f.readlines() if line.strip() != '']
+        lines = list(set(lines))
+        for line in lines:
+            tokens = line.strip().split('\t')
+            if len(tokens[1]) > 0:
+                len_counts[len(tokens[1])] += 1
+
+    counts = sorted(len_counts.items(), key=lambda item: item[0])
+    sent_length = [c[0] for c in counts]
+    sent_freq = [c[1] for c in counts]
+
+    # 绘制句子长度及出现频数统计图
+    plt.bar(sent_length, sent_freq)
+    plt.title("{}_句子长度及出现频数统计图".format(TAG), )
+    plt.xlabel("长度", )
+    plt.ylabel("频数", )
+    plt.savefig("{}_句子长度及出现频数统计图.png".format(TAG))
+    plt.close()
+
+    # 绘制句子长度累积分布函数(CDF)
+    sent_pentage_list = [(count / sum(sent_freq)) for count in itertools.accumulate(sent_freq)]
+
+    # 绘制CDF
+    plt.plot(sent_length, sent_pentage_list)
+
+    # 寻找分位点为quantile的句子长度
+    quantile = 0.91
+    # print(list(sent_pentage_list))
+    for length, per in zip(sent_length, sent_pentage_list):
+        if round(per, 2) == quantile:
+            index = length
+            break
+    print("\n分位点为%s的句子长度:%d." % (quantile, index))
+
+    # 绘制句子长度累积分布函数图
+    plt.plot(sent_length, sent_pentage_list)
+    plt.hlines(quantile, 0, index, colors="c", linestyles="dashed")
+    plt.vlines(index, 0, quantile, colors="c", linestyles="dashed")
+    plt.text(0, quantile, str(quantile))
+    plt.text(index, 0, str(index))
+    plt.title("{}_句子长度累积分布函数图".format(TAG))
+    plt.xlabel("长度")
+    plt.ylabel("累积频率")
+    plt.savefig("{}_句子长度累积分布函数图.png".format(TAG))
+    plt.show()
+    plt.close()
+
+
 if __name__ == '__main__':
+    static_length()
     # read_feedback_opinions()
     # read_comments()
     # corpus_split_train_dev_test()  # 分割语料

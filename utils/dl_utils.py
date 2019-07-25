@@ -179,7 +179,7 @@ def dev2vec(dev, word_dict, max_seq_len=128):
 def word2id(text_str, word_dict, max_seq_len=128):
     if len(text_str) == 0 or len(word_dict) == 0:
         print('[ERROR] word2id failed! | The params: {} and {}'.format(text_str, word_dict))
-        return None
+        return [word_dict['_PAD_']] * max_seq_len
 
     sent_list = data_process(text_str)
     sent_ids = list()

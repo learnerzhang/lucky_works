@@ -7,15 +7,12 @@ Created on Mon Oct 30 19:44:02 2017
 import logging
 import argparse
 import os
-import time
-import torch.nn as nn
 import torch
 from sklearn.metrics import classification_report
-from tqdm import tqdm
 
-from opinion.model.torch_text_rnn import TextAttBiRNN
-from utils.dl_utils import load_dict, read_corpus, batch_yield, read_target_test_corpus, persist
-from utils.path import MODEL_PATH, DATA_PATH
+from core.torch_text_rnn import TextAttBiRNN
+from utils.dl_utils import load_dict, read_corpus, batch_yield, read_target_test_corpus, read_dict
+from utils.path import MODEL_PATH
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -50,19 +47,14 @@ def args():
 
 
 FLAGS, unparsed = args()
+word2int, int2word = read_dict()
+tag2label = {'0': 0, '1': 1}
+int2tag = {l: t for t, l in tag2label.items()}
 
-
-def read_dict():
-    word2int, int2word = load_dict()
-    vocab_size = len(word2int)
-    word2int['_PAD_'], int2word[0] = 0, '_PAD_'
-    word2int['_UNK_'], int2word[vocab_size + 1] = vocab_size, '_UNK_'
-    return word2int, int2word
+target_names = ['good', 'bad']
 
 
 def re_train():
-    word2int, int2word = read_dict()
-
     tag2label = {'0': 0, '1': 1}
     iter = 4
     iter_size = 10000
@@ -73,13 +65,13 @@ def re_train():
 
     logger.info("load pre-train model from {}".format(model_path))
     textRNN = TextAttBiRNN(model_path=model_path,
-                         vocab=word2int,
-                         tag2label=tag2label,
-                         bidirectional=True,
-                         sequence_length=FLAGS.sequence_length,
-                         epoches=FLAGS.epoches,
-                         batch_size=FLAGS.batch_size,
-                         layer_size=2, )
+                           vocab=word2int,
+                           tag2label=tag2label,
+                           bidirectional=True,
+                           sequence_length=FLAGS.sequence_length,
+                           epoches=FLAGS.epoches,
+                           batch_size=FLAGS.batch_size,
+                           layer_size=2, )
 
     textRNN.load_state_dict(torch.load(model_path), strict=False)
     textRNN.set_model_path(model_path=os.path.join(MODEL_PATH, mp))
@@ -88,11 +80,9 @@ def re_train():
 
 
 def train():
-    tag2label = {'0': 0, '1': 1}
     iter = 0
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
-    word2int, int2word = read_dict()
 
     mp = "torch_rnn".format(str(iter + 1), iter_size, FLAGS.epoches)
 
@@ -108,22 +98,19 @@ def train():
 
 
 def test():
-    word2int, int2word = read_dict()
     reply_good, reply_bad, test = read_target_test_corpus()
     # 测试数据
-    tag2label = {'0': 0, '1': 1}
-    target_names = ['good', 'bad']
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, "model.pth")
     logger.info("load pre-train model from {}".format(model_path))
     # model_path = os.path.join(MODEL_PATH, mp),
     textAttRNN = TextAttBiRNN(model_path=model_path,
-                           vocab=word2int,
-                           tag2label=tag2label,
-                           bidirectional=True,
-                           sequence_length=FLAGS.sequence_length,
-                           epoches=FLAGS.epoches,
-                           batch_size=FLAGS.batch_size,
-                           layer_size=2, )
+                              vocab=word2int,
+                              tag2label=tag2label,
+                              bidirectional=True,
+                              sequence_length=FLAGS.sequence_length,
+                              epoches=FLAGS.epoches,
+                              batch_size=FLAGS.batch_size,
+                              layer_size=2, )
 
     # textRNN = nn.DataParallel(textRNN)
     logger.info("Load torch model from {}".format(model_path))
@@ -179,20 +166,15 @@ def test():
 
 def use_for_tagging():
     """通过预测, 对比标注数据"""
-    word2int, int2word = read_dict()
-
-    tag2label = {'0': 0, '1': 1}
-    int2tag = {l: t for t, l in tag2label.items()}
-
     reply_goods, reply_bads, tests = read_target_test_corpus()
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')
 
     logger.info("load model from {}".format(model_path))
 
     textAttRNN = TextAttBiRNN(model_path=model_path,
-                           vocab=word2int,
-                           tag2label=tag2label,
-                           eopches=FLAGS.epoches, )
+                              vocab=word2int,
+                              tag2label=tag2label,
+                              eopches=FLAGS.epoches, )
 
     # reply_goods_errors = []
     #
@@ -215,23 +197,18 @@ def use_for_tagging():
 
 
 def demo():
-    word2int, int2word = read_dict()
-
-    tag2label = {'0': 0, '1': 1}
-    int2tag = {l: t for t, l in tag2label.items()}
-
-    model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')
+    model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, "model.pth")
     logger.info("load model from {}".format(model_path))
 
     textAttRNN = TextAttBiRNN(model_path=model_path,
-                           vocab=word2int,
-                           tag2label=tag2label,
-                           bidirectional=True,
-                           sequence_length=FLAGS.sequence_length,
-                           epoches=FLAGS.epoches,
-                           batch_size=FLAGS.batch_size,
-                           layer_size=2, )
-
+                              vocab=word2int,
+                              tag2label=tag2label,
+                              bidirectional=True,
+                              sequence_length=FLAGS.sequence_length,
+                              epoches=FLAGS.epoches,
+                              batch_size=FLAGS.batch_size,
+                              layer_size=2, )
+    textAttRNN.load_state_dict(torch.load(model_path), strict=False)
     print('============= demo =============')
     while True:
         print('Please input your sentence:')

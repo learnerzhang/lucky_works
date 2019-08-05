@@ -19,8 +19,7 @@ import logging
 # Device configuration
 from tqdm import tqdm
 import numpy as np
-from utils.dl_utils import load_dict, batch_yield, dev2vec, pad_sequences
-from utils.path import MODEL_PATH
+from utils.dl_utils import batch_yield, dev2vec, pad_sequences
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

@@ -7,14 +7,13 @@ Created on Mon Oct 30 19:44:02 2017
 import logging
 import argparse
 import os
-import time
 
 import tensorflow as tf
 from sklearn.metrics import classification_report
 from tqdm import tqdm
 
-from utils.dl_utils import load_dict, read_corpus, batch_yield, read_target_test_corpus, persist
-from opinion.model.tf_text_cnn import TextCNN
+from utils.dl_utils import load_dict, read_corpus, batch_yield, read_target_test_corpus, persist, read_dict
+from core.tf_text_cnn import TextCNN
 from utils.path import MODEL_PATH, DATA_PATH
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -51,6 +50,10 @@ def args():
 
 
 FLAGS, unparsed = args()
+word2int, int2word = read_dict()
+tag2label = {'0': 0, '1': 1}
+int2tag = {l: t for t, l in tag2label.items()}
+target_names = ["good", "bad"]
 
 
 def cfg():
@@ -60,18 +63,7 @@ def cfg():
     return config
 
 
-def read_dict():
-    word2int, int2word = load_dict()
-    vocab_size = len(word2int)
-    word2int['_PAD_'], int2word[0] = 0, '_PAD_'
-    word2int['_UNK_'], int2word[vocab_size + 1] = vocab_size, '_UNK_'
-    return word2int, int2word
-
-
 def re_train():
-    word2int, int2word = read_dict()
-
-    tag2label = {'0': 0, '1': 1}
     iter = 5
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
@@ -95,11 +87,9 @@ def re_train():
 
 
 def train():
-    tag2label = {'0': 0, '1': 1}
     iter = 0
     iter_size = 10000
     train, dev = read_corpus(random_state=1234, separator='\t', iter=iter, iter_size=iter_size)
-    word2int, int2word = read_dict()
 
     mp = "iter_{}_size_{}_epochs_{}".format(str(iter + 1), iter_size, FLAGS.epoches)
     textCNN = TextCNN(
@@ -114,10 +104,6 @@ def train():
 
 
 def test():
-    word2int, int2word = read_dict()
-    tag2label = {'0': 0, '1': 1}
-    target_names = ["good", "bad"]
-
     reply_good, reply_bad, test = read_target_test_corpus()
 
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')
@@ -185,10 +171,6 @@ def test():
 
 def use_for_tagging():
     """通过预测, 对比标注数据"""
-    word2int, int2word = read_dict()
-
-    tag2label = {'0': 0, '1': 1}
-    int2tag = {l: t for t, l in tag2label.items()}
 
     reply_goods, reply_bads, tests = read_target_test_corpus()
     model_path = os.path.join(MODEL_PATH, FLAGS.DEMO, 'checkpoints')

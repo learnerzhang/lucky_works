@@ -15,7 +15,8 @@ import random
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-
+import re
+from utils.langconv import Converter
 from utils.path import DATA_PATH
 
 
@@ -43,7 +44,7 @@ def conlleval(label_predict, label_path, metric_path):
     return metrics
 
 
-def read_corpus(random_state=1234, separator='\t', iter=-1, iter_size=10000):
+def read_corpus(filename=None, random_state=1234, separator='\t', iter=-1, iter_size=10000, test_size=0.2):
     """
     获取数据, 保证均衡
     :param random_state:
@@ -51,6 +52,20 @@ def read_corpus(random_state=1234, separator='\t', iter=-1, iter_size=10000):
     :return:
     """
     import collections
+
+    if filename is not None:
+        sents = []
+        with codecs.open(os.path.join(DATA_PATH, "emergency_train.tsv"), encoding='utf-8', mode='r') as f:
+            for line in tqdm(f.readlines()):
+                line = line.strip()
+                tokens = line.split('\t')
+                sents.append((tokens[1], tokens[0]))
+        test_size = len(sents) * test_size
+        choices = random.sample(list(range(len(sents))), int(test_size))
+        dev = [s for i, s in enumerate(sents) if i in choices]
+        train = [s for i, s in enumerate(sents) if i not in choices]
+        return train, dev
+
     tmp_results = collections.defaultdict(list)
     with codecs.open(DATA_PATH + os.sep + 'train.tsv', encoding='utf-8') as f:
         for line in tqdm(f.readlines()):
@@ -81,6 +96,14 @@ def read_corpus(random_state=1234, separator='\t', iter=-1, iter_size=10000):
            tqdm(codecs.open(DATA_PATH + os.sep + 'dev.tsv', encoding='utf-8').readlines()) if
            not (line.startswith("####") or line.startswith("$$$$")) and len(line.split(separator)) >= 2]
     return train, dev
+
+
+def read_dict():
+    word2int, int2word = load_dict()
+    vocab_size = len(word2int)
+    word2int['_PAD_'], int2word[0] = 0, '_PAD_'
+    word2int['_UNK_'], int2word[vocab_size + 1] = vocab_size, '_UNK_'
+    return word2int, int2word
 
 
 def read_target_test_corpus(separator='\t', ):
@@ -211,6 +234,18 @@ def variable_summaries(var):
         tf.compat.v1.summary.histogram("histogram", var)
 
 
+def traditional2simplified(sentence):
+    '''
+    将sentence中的繁体字转为简体字
+    :param sentence: 待转换的句子
+    :return: 将句子中繁体字转换为简体字之后的句子
+    '''
+    sentence = Converter('zh-hans').convert(sentence)
+    return sentence
+
+
 if __name__ == '__main__':
     char_dict, char_dict_re = load_dict()
     print("word nums:", len(char_dict))
+    no_zh_ch()
+    exit(0)

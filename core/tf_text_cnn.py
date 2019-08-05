@@ -23,7 +23,7 @@ logger.setLevel(logging.DEBUG)
 
 class TextCNN:
 
-    def __init__(self, model_path, vocab, tag2label, embed_size=300, batch_size=64, eopches=10, sequence_length=50,
+    def __init__(self, model_path, vocab, tag2label, embed_size=100, batch_size=64, eopches=10, sequence_length=50,
                  filter_sizes=[2, 3, 4], num_filters=128, lr=0.001, decay_rate=0.99, keep_rate=0.5, lip_gradients=5.0,
                  decay_steps=10000, initializer=tf.random_normal_initializer(stddev=0.1)):
 
@@ -128,7 +128,7 @@ class TextCNN:
 
                 b = tf.compat.v1.get_variable("b-%s" % filter_size, [self.num_filters])  # ADD 2017-06-09
                 h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-                pooled = tf.nn.max_pool2d(h, ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
+                pooled = tf.nn.max_pool(h, ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
                                           strides=[1, 1, 1, 1], padding='VALID', name="pool")
                 logger.debug('pooled: %s' % pooled)
                 pooled_outputs.append(pooled)
@@ -219,7 +219,8 @@ class TextCNN:
                                   max_seq_len=self.sequence_length, shuffle=shuffle)
 
             for step, (seqs, labels) in enumerate(batches):
-                b_x, b_len_x = pad_sequences(seqs)
+                # b_x, b_len_x = pad_sequences(seqs)
+                b_x = seqs
                 b_y = labels  # PADDING
 
                 sys.stdout.write(' processing: {} batch / {} batches.'.format(step + 1, num_batches) + '\r')

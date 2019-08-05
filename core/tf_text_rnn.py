@@ -76,6 +76,9 @@ class TextAttRNN:
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="Accuracy")  # shape=()
         tf.compat.v1.summary.scalar("accuracy", self.accuracy)
 
+    def set_model_path(self, model_path):
+        self.model_path = model_path
+
     def add_placeholder(self):
         self.input_x = tf.compat.v1.placeholder(tf.int32, [None, self.sequence_length], name="input_x")  # X, 动态RNN
         self.input_y = tf.compat.v1.placeholder(tf.int32, [None, ], name="input_y")
@@ -163,14 +166,12 @@ class TextAttRNN:
                                                    learning_rate=learning_rate, optimizer="Adam")
         return train_op
 
-    def train(self, sess,train, dev, shuffle=True, re_train=False):
+    def train(self, sess, train, dev, shuffle=True, re_train=False):
         checkpoints_path = None
         saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
         # DEV split
-        dev_batches = \
-            list(batch_yield(dev, 1000, self.vocab, self.tag2label, max_seq_len=self.sequence_length, shuffle=shuffle))
-        # DEV padding
-        dev_batches = [(pad_sequences(dev_seqs)[0], dev_labels) for (dev_seqs, dev_labels) in dev_batches]
+        dev_batches = list(
+            batch_yield(dev, 1000, self.vocab, self.tag2label, max_seq_len=self.sequence_length, shuffle=shuffle))
 
         # with tf.compat.v1.Session(config=self.config) as sess:
         if not re_train:

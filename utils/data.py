@@ -5,6 +5,8 @@
 # @Site    : 
 # @File    : data.py
 # @Software: PyCharm
+import re
+
 import numpy as np
 import collections
 import codecs
@@ -18,10 +20,13 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
+root = '/Users/zhangzhen/Downloads/luckin/p'
+
+jieba.load_userdict(os.path.join(root, 'data', 'user.dict'))
+
 mpl.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # enable chinese
 mpl.rcParams['font.size'] = 10
 
-root = '/Users/zhangzhen/Downloads/luckin/p'
 # SQL 导出
 # root = 'E:\data\luckin\p'
 type_file = '60353-数据反馈类型查询.csv'
@@ -238,18 +243,39 @@ def gen_test_target():
         .writelines(["1\t{}".format(line) for line in tqdm(reply_bads)])
 
 
-def gen_word2id():
-    """根据语料生成字典"""
+def gen_word2id(mode='all'):
+    """
+    根据语料生成字典
+    :param mode: all, char, word
+    :return:
+    """
     vocabularySet = set()
-    with codecs.open('dev.txt', encoding='utf-8') as f:
-        for line in tqdm(f.readlines()):
-            line = line.strip()
-            tokens = list(jieba.lcut(line))
-            vocabularySet = vocabularySet.union(set(tokens))
-    print("Total words:{}".format(len(vocabularySet)))
-    # 0 -> PAD
+    for file in [comments, opinions]:
+        with codecs.open(root + os.sep + file, encoding='utf-8') as f:
+            for line in tqdm(f.readlines()):
+                line = line.strip()
+                if '$0' in line:
+                    tokens = line.split('$0')
+                    line = tokens[1]
+                elif '$' in line:
+                    tokens = line.split('$')
+                    line = tokens[1]
+
+                if mode == 'char':
+                    tokens = list(line)
+                elif mode == 'word':
+                    tokens = list(jieba.lcut(line))
+                elif mode == 'all':
+                    tokens = list(line) + list(jieba.lcut(line))
+
+                vocabularySet = vocabularySet.union(set(tokens))
+                # print(vocabularySet)
+
+    print("Total {}.dict: {}".format(mode, len(vocabularySet)))
+    # 0 for PAD
     vocab2int = {voc: idx + 1 for idx, voc in enumerate(vocabularySet)}
-    json.dump(vocab2int, codecs.open("words.dict", mode='w+', encoding='utf-8'), ensure_ascii=True)
+    json.dump(vocab2int, codecs.open(os.path.join(root, 'data', 'input', "{}.dict".format(mode)),
+                                     mode='w+', encoding='utf-8'), ensure_ascii=True)
 
 
 def read_corpus(sequence_length=50, sparse=True):
@@ -373,14 +399,38 @@ def static_length():
     plt.close()
 
 
+def no_zh_ch():
+    fil = re.compile(u'[^0-9a-zA-Z\u4e00-\u9fa5.，,。“”]', re.UNICODE)
+    # fil.findall()
+    rs = []
+    import collections
+    for file in [comments, opinions]:
+        with codecs.open(root + os.sep + file, encoding='utf-8') as f:
+            for line in tqdm(f.readlines()):
+                line = line.strip()
+                if '$0' in line:
+                    tokens = line.split('$0')
+                    line = tokens[1]
+                elif '$' in line:
+                    tokens = line.split('$')
+                    line = tokens[1]
+
+                r = fil.findall(line)
+                if r:
+                    rs.extend(r)
+    counter = collections.Counter(rs)
+    print(counter)
+    codecs.open(os.path.join(root, "no_normal_char.txt"), encoding='utf-8', mode='w+').writelines(sorted(set(rs)))
+
+
 if __name__ == '__main__':
-    static_length()
+    # static_length()
     # read_feedback_opinions()
     # read_comments()
     # corpus_split_train_dev_test()  # 分割语料
     # gen_test_target()
-    # gen_word2id()
-
+    # gen_word2id(mode='all')
+    no_zh_ch()
     # vocab2int, int2vocab, label2int, int2label, (_data, _labels) = read_corpus()
     # print(_data[0], _labels[0])
     #

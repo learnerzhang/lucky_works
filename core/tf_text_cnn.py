@@ -129,7 +129,7 @@ class TextCNN:
                 b = tf.compat.v1.get_variable("b-%s" % filter_size, [self.num_filters])  # ADD 2017-06-09
                 h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
                 pooled = tf.nn.max_pool(h, ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
-                                          strides=[1, 1, 1, 1], padding='VALID', name="pool")
+                                        strides=[1, 1, 1, 1], padding='VALID', name="pool")
                 logger.debug('pooled: %s' % pooled)
                 pooled_outputs.append(pooled)
 
